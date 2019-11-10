@@ -11,11 +11,12 @@ mongo=PyMongo(app)
 
 @app.route('/register-stock',methods=['GET','POST'])
 def registerStock():
-    conn=mongo.db.value_holding
     buyingValue=request.json.get('BuyingValue')
     investedMoney=request.json.get('InvestedMoney')
     companyName=request.json.get('CompanyName')
-    conn.insert({'buyingValue':buyingValue,'investedMoney':investedMoney,'companyName':companyName})
+    saveToDatabase({'buyingValue': buyingValue, 'investedMoney': investedMoney, 'companyName': companyName,
+                 'currentValue': buyingValue})
+
 
 def getCurrentValue(investedStocks):
 
@@ -27,15 +28,25 @@ def getCurrentValue(investedStocks):
 
 @app.route('/check-investment',methods=['GET','POST'])
 def checkInvestment():
-    conn=mongo.db.value_holding
-    StockRecords=conn.find({})
+    StockRecords=retrieveFromDatabase()
     investedStocks=[document for document in StockRecords]
     investedStocks=getCurrentValue(investedStocks)
     for doc in investedStocks:
         print(doc)
         doc['profitMargin']=float(doc['currentValue'])-float(doc['buyingValue'])
+        saveToDatabase(doc,modify=True)
     return str(investedStocks)
 
+def saveToDatabase(document,modify=False):
+    conn = mongo.db.value_holding
+    if modify is not True:
+        conn.insert(document)
+    else:
+        conn.update({"_id":document['_id']},{"$set": {"currentValue":document['currentValue']}},upsert=False)
+
+def retrieveFromDatabase():
+    conn = mongo.db.value_holding
+    return conn.find({})
 
 if __name__=='__main__':
     app.run(debug=True)
